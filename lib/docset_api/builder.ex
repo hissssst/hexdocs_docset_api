@@ -196,6 +196,18 @@ defmodule DocsetApi.Builder do
 
       # For each file, parse it for the right keywords and run the callback # against the result.
       Enum.each(files, fn file ->
+        if Path.extname(file) == ".css" do
+          content =
+            File.read!(file)
+            |> String.replace("max-width:949px;", "max-width:100%;")
+            |> String.replace("left:300px;", "left:5px;")
+            |> String.replace("calc(100% - 300px);", "calc(100%);")
+
+          File.write(
+            file,
+            content
+          )
+        end
         if Path.extname(file) == ".html" do
           # Logger.debug("parse #{file}")
 
@@ -212,16 +224,8 @@ defmodule DocsetApi.Builder do
 
               {:ok, _} = Sqlitex.query(db, query)
             end)
-            |> Floki.attr("body", "class", fn
-              nil ->
-                "sidebar-closed"
-
-              classes ->
-                if String.contains?(classes, "sidebar-opened") do
-                  String.replace(classes, "sidebar-opened", "sidebar-closed")
-                else
-                  "#{classes} sidebar-closed"
-                end
+            |> Floki.find_and_update(".sidebar", fn _ ->
+              :delete
             end)
             |> Floki.find_and_update("button", fn button ->
               button_classes = Floki.attribute(button, "class")
@@ -234,6 +238,7 @@ defmodule DocsetApi.Builder do
               end
             end)
             |> Floki.raw_html()
+            |> String.replace("sidebar-opened", "sidebar-closed")
 
           File.write(
             file,
